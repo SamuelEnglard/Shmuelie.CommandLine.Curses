@@ -27,16 +27,16 @@ namespace Shmuelie.CommandLine.Curses.Runner
                 {
                     new ProgressView()
                     {
-                        Progress = 0.5
+                        Value = 0.5
                     },
                     new ProgressView()
                     {
-                        Progress = 0.75,
+                        Value = 0.75,
                         ShowProgressText = true
                     },
                     new ProgressView()
                     {
-                        Progress = 0.5,
+                        Value = 0.5,
                         ShowProgressText = true,
                         FillForeground = ForegroundColorSpan.Red(),
                         EmptyBackground = BackgroundColorSpan.Blue()

@@ -8,26 +8,26 @@ namespace Shmuelie.CommandLine.Curses
 {
     public sealed class ProgressView : View, INotifyPropertyChanged
     {
-        private double progress;
+        private double value;
         private int? width;
 
-        public double Progress
+        public double Value
         {
             get
             {
-                return progress;
+                return value;
             }
             set
             {
-                if (value > 1 || value < 0)
+                if (double.IsInfinity(Value) || double.IsNaN(Value))
                 {
-                    throw new ArgumentOutOfRangeException(nameof(value), "Progress must be between 0 and 1, inclusive.");
+                    throw new ArgumentOutOfRangeException(nameof(value), "Value must be real.");
                 }
-                if (value != progress)
+                if (value != this.value)
                 {
-                    progress = value;
+                    this.value = value;
                     OnUpdated();
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Progress)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
                 }
             }
         }
