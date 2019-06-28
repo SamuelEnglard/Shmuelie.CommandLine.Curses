@@ -3,34 +3,49 @@ using System.Collections.Generic;
 using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
 using System.ComponentModel;
+using System.Globalization;
+using PropertyChanged;
 
 namespace Shmuelie.CommandLine.Curses
 {
     public sealed class ProgressView : View, INotifyPropertyChanged
     {
-        private double value;
-        private int? width;
-
-        public double Value
+        public ProgressView()
         {
-            get
+            PropertyChanged += HandlePropertyChange;
+        }
+
+        private static void HandlePropertyChange(object sender, PropertyChangedEventArgs eventArgs)
+        {
+            if (sender is ProgressView progressView)
             {
-                return value;
-            }
-            set
-            {
-                if (double.IsInfinity(Value) || double.IsNaN(Value))
-                {
-                    throw new ArgumentOutOfRangeException(nameof(value), "Value must be real.");
-                }
-                if (value != this.value)
-                {
-                    this.value = value;
-                    OnUpdated();
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
-                }
+                progressView.OnUpdated();
             }
         }
+
+        [MustBeRealNumber]
+        public double Value
+        {
+            get;
+            set;
+        } = 0;
+
+        [MustBeRealNumber]
+        public double MinValue
+        {
+            get;
+            set;
+        } = 0;
+
+        [MustBeRealNumber]
+        public double MaxValue
+        {
+            get;
+            set;
+        } = 100;
+
+        [DependsOn(nameof(Value), nameof(MinValue), nameof(MaxValue))]
+        public double Percent => Value / (MaxValue - MinValue);
 
         public char FillCharacter
         {
@@ -38,12 +53,14 @@ namespace Shmuelie.CommandLine.Curses
             set;
         } = '=';
 
+        [NotNull]
         public ForegroundColorSpan FillForeground
         {
             get;
             set;
         } = ForegroundColorSpan.Reset();
 
+        [NotNull]
         public BackgroundColorSpan FillBackground
         {
             get;
@@ -56,38 +73,26 @@ namespace Shmuelie.CommandLine.Curses
             set;
         } = ' ';
 
+        [NotNull]
         public ForegroundColorSpan EmptyForeground
         {
             get;
             set;
         } = ForegroundColorSpan.Reset();
 
+        [NotNull]
         public BackgroundColorSpan EmptyBackground
         {
             get;
             set;
         } = BackgroundColorSpan.Reset();
 
+        [MustBeZeroOrGreater]
         public int? Width
         {
-            get
-            {
-                return width;
-            }
-            set
-            {
-                if (value != null && value < 1)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(value), "Width must be greater than zero");
-                }
-                if (value != width)
-                {
-                    width = value;
-                    OnUpdated();
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Width)));
-                }
-            }
-        }
+            get;
+            set;
+        } = null;
 
         public char? PrefixCharacter
         {
@@ -95,12 +100,14 @@ namespace Shmuelie.CommandLine.Curses
             set;
         } = '[';
 
+        [NotNull]
         public ForegroundColorSpan PrefixForeground
         {
             get;
             set;
         } = ForegroundColorSpan.Reset();
 
+        [NotNull]
         public BackgroundColorSpan PrefixBackground
         {
             get;
@@ -113,12 +120,14 @@ namespace Shmuelie.CommandLine.Curses
             set;
         } = ']';
 
+        [NotNull]
         public ForegroundColorSpan SuffixForeground
         {
             get;
             set;
         } = ForegroundColorSpan.Reset();
 
+        [NotNull]
         public BackgroundColorSpan SuffixBackground
         {
             get;
@@ -133,18 +142,43 @@ namespace Shmuelie.CommandLine.Curses
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public override Size Measure(ConsoleRenderer renderer, Size maxSize)
+        [NotNull]
+        public IFormatProvider FormatProvider
         {
-            if (width is null)
+            get;
+            set;
+        } = CultureInfo.CurrentCulture;
+
+        public override Size Measure(ConsoleRenderer renderer, Size maxSize) => new Size(Math.Min(MinWidth, maxSize.Width), 1);
+
+        private int MinWidth
+        {
+            get
             {
-                return new Size(maxSize.Width, 1);
+                int minWidth = 0;
+                if (PrefixCharacter.HasValue)
+                {
+                    minWidth++;
+                }
+                if (SuffixCharacter.HasValue)
+                {
+                    minWidth++;
+                }
+                if (ShowProgressText)
+                {
+                    minWidth += ToString().Length;
+                }
+                if (Width.HasValue && Width.Value > minWidth)
+                {
+                    minWidth = Width.Value;
+                }
+                return minWidth;
             }
-            return new Size(Math.Min(width.Value, maxSize.Width), 1);
         }
 
         public override void Render(ConsoleRenderer renderer, Region region)
         {
-            int minWidth = 0;
+            int outerWidth = 0;
             List<Span> spans = new List<Span>(19);
             if (PrefixCharacter.HasValue)
             {
@@ -153,34 +187,34 @@ namespace Shmuelie.CommandLine.Curses
                 spans.Add(new ContentSpan(PrefixCharacter.Value.ToString()));
                 spans.Add(BackgroundColorSpan.Reset());
                 spans.Add(ForegroundColorSpan.Reset());
-                minWidth++;
+                outerWidth++;
             }
             if (SuffixCharacter.HasValue)
             {
-                minWidth++;
+                outerWidth++;
             }
-            int barInnerWidth = Math.Max(0, (width ?? region.Width) - minWidth);
-            int filledWidth = (int)(barInnerWidth * progress);
+            int barInnerWidth = Math.Max(0, region.Width - outerWidth);
+            int filledWidth = (int)(barInnerWidth * Value);
             spans.Add(FillForeground);
             spans.Add(FillBackground);
-            if (barInnerWidth >= 7 && ShowProgressText)
+            string percentText = ToString();
+            if (barInnerWidth >= percentText.Length && ShowProgressText)
             {
-                int textLocation = barInnerWidth / 2 - 3;
-                string percentText = ToString();
+                int textLocation = barInnerWidth / 2 - (percentText.Length / 2);
                 if (filledWidth > textLocation)
                 {
                     spans.Add(new ContentSpan(new string(FillCharacter, textLocation)));
                     int filledText = filledWidth - textLocation;
-                    if (filledText <= 7)
+                    if (filledText <= percentText.Length)
                     {
                         spans.Add(new ContentSpan(percentText.Substring(0, filledText)));
                         spans.Add(EmptyForeground);
                         spans.Add(EmptyBackground);
-                        spans.Add(new ContentSpan(percentText.Substring(filledText) + new string(EmptyCharacter, barInnerWidth - (filledWidth + (7 - filledText)))));
+                        spans.Add(new ContentSpan(percentText.Substring(filledText) + new string(EmptyCharacter, barInnerWidth - (filledWidth + (percentText.Length - filledText)))));
                     }
                     else
                     {
-                        spans.Add(new ContentSpan(percentText + new string(FillCharacter, filledWidth - (textLocation + 7))));
+                        spans.Add(new ContentSpan(percentText + new string(FillCharacter, filledWidth - (textLocation + percentText.Length))));
                         spans.Add(EmptyForeground);
                         spans.Add(EmptyBackground);
                         spans.Add(new ContentSpan(new string(EmptyCharacter, barInnerWidth - filledWidth)));
@@ -191,7 +225,7 @@ namespace Shmuelie.CommandLine.Curses
                     spans.Add(new ContentSpan(new string(FillCharacter, filledWidth)));
                     spans.Add(EmptyForeground);
                     spans.Add(EmptyBackground);
-                    spans.Add(new ContentSpan(new string(EmptyCharacter, textLocation - filledWidth) + percentText + new string(EmptyCharacter, barInnerWidth - (textLocation + 7))));
+                    spans.Add(new ContentSpan(new string(EmptyCharacter, textLocation - filledWidth) + percentText + new string(EmptyCharacter, barInnerWidth - (textLocation + percentText.Length))));
                 }
             }
             else
@@ -214,6 +248,6 @@ namespace Shmuelie.CommandLine.Curses
             renderer.RenderToRegion(new ContainerSpan(spans.ToArray()), region);
         }
 
-        public override string ToString() => $"{progress,7:P}";
+        public override string ToString() => Percent.ToString(FormatProvider);
     }
 }
