@@ -17,7 +17,7 @@ namespace Shmuelie.CommandLine.Curses
 
         private static void HandlePropertyChange(object sender, PropertyChangedEventArgs eventArgs)
         {
-            if (sender is ProgressView progressView)
+            if (sender is ProgressView progressView && eventArgs.PropertyName != nameof(Percent))
             {
                 progressView.OnUpdated();
             }
@@ -134,7 +134,7 @@ namespace Shmuelie.CommandLine.Curses
             set;
         } = BackgroundColorSpan.Reset();
 
-        public bool ShowProgressText
+        public ProgressViewTextPosition ShowProgressText
         {
             get;
             set;
@@ -149,7 +149,14 @@ namespace Shmuelie.CommandLine.Curses
             set;
         } = CultureInfo.CurrentCulture;
 
-        public override Size Measure(ConsoleRenderer renderer, Size maxSize) => new Size(Math.Min(MinWidth, maxSize.Width), 1);
+        [NotNull]
+        public string Format
+        {
+            get;
+            set;
+        } = "P0";
+
+        public override Size Measure(ConsoleRenderer renderer, Size maxSize) => new Size(Math.Max(MinWidth, maxSize.Width), 1);
 
         private int MinWidth
         {
@@ -164,7 +171,7 @@ namespace Shmuelie.CommandLine.Curses
                 {
                     minWidth++;
                 }
-                if (ShowProgressText)
+                if (ShowProgressText != ProgressViewTextPosition.None)
                 {
                     minWidth += ToString().Length;
                 }
@@ -194,13 +201,22 @@ namespace Shmuelie.CommandLine.Curses
                 outerWidth++;
             }
             int barInnerWidth = Math.Max(0, region.Width - outerWidth);
-            int filledWidth = (int)(barInnerWidth * Value);
+            int filledWidth = (int)(barInnerWidth * Percent);
             spans.Add(FillForeground);
             spans.Add(FillBackground);
             string percentText = ToString();
-            if (barInnerWidth >= percentText.Length && ShowProgressText)
+            if (barInnerWidth >= percentText.Length && ShowProgressText != ProgressViewTextPosition.None)
             {
-                int textLocation = barInnerWidth / 2 - (percentText.Length / 2);
+                int textLocation = 0 ;
+                switch (ShowProgressText)
+                {
+                    case ProgressViewTextPosition.Center:
+                        textLocation = barInnerWidth / 2 - (percentText.Length / 2);
+                        break;
+                    case ProgressViewTextPosition.End:
+                        textLocation = barInnerWidth - percentText.Length;
+                        break;
+                }
                 if (filledWidth > textLocation)
                 {
                     spans.Add(new ContentSpan(new string(FillCharacter, textLocation)));
@@ -248,6 +264,6 @@ namespace Shmuelie.CommandLine.Curses
             renderer.RenderToRegion(new ContainerSpan(spans.ToArray()), region);
         }
 
-        public override string ToString() => Percent.ToString(FormatProvider);
+        public override string ToString() => Percent.ToString(Format, FormatProvider);
     }
 }
