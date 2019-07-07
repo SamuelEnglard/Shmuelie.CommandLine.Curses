@@ -11,6 +11,8 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>curses,ncurses,ui,command-lin,commandline,dotnet-core,dotnet-standard</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageIconUrl>https://github.com/SamuelEnglard/Shmuelie.CommandLine.Curses/raw/master/Shmuelie.CommandLine.Curses.png</PackageIconUrl>
+    <Copyright>Copyright 2019 © Shmueli Englard</Copyright>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
