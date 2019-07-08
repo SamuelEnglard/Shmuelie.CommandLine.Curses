@@ -10,6 +10,12 @@ namespace Shmuelie.CommandLine.Curses
     {
         private readonly SpinnerView spinnerView = new SpinnerView();
         private CancellationTokenSource cancellationTokenSource;
+        private readonly Action<Task> tick;
+
+        public AutoSpinnerView()
+        {
+            tick = new Action<Task>(Tick);
+        }
 
         public TimeSpan Interval
         {
@@ -30,7 +36,7 @@ namespace Shmuelie.CommandLine.Curses
                     if (!Running)
                     {
                         cancellationTokenSource = new CancellationTokenSource();
-                        Task.Delay(Interval, cancellationTokenSource.Token).ContinueWith(Tick);
+                        Task.Delay(Interval, cancellationTokenSource.Token).ContinueWith(tick);
                     }
                     else
                     {
@@ -50,7 +56,7 @@ namespace Shmuelie.CommandLine.Curses
             }
             spinnerView.Tick();
             OnUpdated();
-            Task.Delay(Interval, cancellationTokenSource.Token).ContinueWith(Tick);
+            Task.Delay(Interval, cancellationTokenSource.Token).ContinueWith(tick);
         }
 
         public override Size Measure(ConsoleRenderer renderer, Size maxSize) => spinnerView.Measure(renderer, maxSize);

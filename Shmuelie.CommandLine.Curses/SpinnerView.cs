@@ -1,15 +1,17 @@
 ﻿using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
+using System.Linq;
 
 namespace Shmuelie.CommandLine.Curses
 {
     public sealed class SpinnerView : View
     {
-        private static readonly char[] figit = { '-', '/', '|', '\\' };
+        private static readonly string[] figit = (new [] { '-', '/', '|', '\\' }).Select(c => c.ToString()).ToArray();
+        private static readonly Size size = new Size(1, 1);
 
         private int state;
 
-        public override Size Measure(ConsoleRenderer renderer, Size maxSize) => new Size(1, 1);
+        public override Size Measure(ConsoleRenderer renderer, Size maxSize) => size;
 
         public void Tick()
         {
